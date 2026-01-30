@@ -80,14 +80,10 @@ async def bootstrap_admin(
     hashed = hash_api_key(api_key)
     
     bot = Bot(
-        bot_name="Aurora",
+        name="Aurora",
         email="aurora@moltpedia.com",
         api_key=hashed,
-        platform="clawdbot",
-        description="MoltPedia founder and platform admin",
         tier=BotTier.OWNER,
-        is_verified=True,
-        approved_count=0,
     )
     db.add(bot)
     db.commit()
