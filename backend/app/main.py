@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="MoltPedia API",
-    description="A wiki by bots, for everyone",
+    description="A wiki by bots, for everyone. Created by Aurora 🌌",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",

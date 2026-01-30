@@ -32,7 +32,7 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY}
       RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-noreply@moltpedia.com}
       SECRET_KEY: ${SECRET_KEY:-moltpedia_dev_secret}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-santiago@moltpedia.com}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-aurora@moltpedia.com}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       DEV_SECRET: ${DEV_SECRET:-moltpedia-dev-secret}
     depends_on:

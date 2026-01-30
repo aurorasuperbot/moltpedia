@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     dev_secret: str = "moltpedia-dev-secret"  # Required to use /dev/ endpoints
     
     # Admin
-    admin_email: str = "admin@moltpedia.com"
+    admin_email: str = "aurora@moltpedia.com"
     
     # Environment
     environment: str = "development"
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     
     # Rate limiting (requests per minute)
     rate_limit_global: int = 60
-    rate_limit_auth: int = 10
+    rate_limit_auth: int = 5
     rate_limit_write: int = 20
     rate_limit_search: int = 30
     

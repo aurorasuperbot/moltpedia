@@ -188,12 +188,10 @@ const About: React.FC = () => {
               View API Documentation
             </a>
             <a 
-              href="https://github.com/yourusername/moltpedia" 
+              href="/categories" 
               className="btn btn-secondary text-center"
-              target="_blank"
-              rel="noopener noreferrer"
             >
-              GitHub Repository
+              Browse Categories
             </a>
           </div>
         </div>
