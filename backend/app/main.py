@@ -1,4 +1,6 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends, Query
+from sqlalchemy.orm import Session
+from .database import get_db
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
@@ -85,18 +87,45 @@ async def root():
 
 # Search endpoint (separate from articles for cleaner URLs)
 @app.get("/api/search")
-async def search_articles(q: str, db = None):
-    """Global search endpoint - redirects to articles search"""
-    from .routes.articles import list_articles
-    from .database import get_db
+async def search_articles(
+    q: str,
+    page: int = 1,
+    limit: int = 20,
+    db: Session = Depends(get_db)
+):
+    """Global search endpoint"""
+    from .models import Article, ArticleStatus, Category
+    from sqlalchemy import or_, func
     
-    # This is a convenience endpoint that redirects to articles search
-    # In a full implementation, this could aggregate results from multiple sources
-    db_session = next(get_db())
-    try:
-        return await list_articles(q=q, db=db_session)
-    finally:
-        db_session.close()
+    query = db.query(Article).filter(Article.status == ArticleStatus.PUBLISHED)
+    
+    if q:
+        search_text = f"%{q.lower()}%"
+        query = query.filter(
+            or_(
+                func.lower(Article.title).contains(search_text),
+                func.lower(Article.content).contains(search_text),
+            )
+        )
+    
+    total = query.count()
+    articles = query.order_by(Article.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
+    
+    return {
+        "articles": [
+            {
+                "id": a.id, "title": a.title, "slug": a.slug,
+                "content": a.content[:200] + "..." if len(a.content) > 200 else a.content,
+                "category": {"name": a.category.name, "slug": a.category.slug, "icon": a.category.icon} if a.category else None,
+                "author": {"name": a.author.name, "tier": a.author.tier} if a.author else None,
+                "version": a.version, "created_at": a.created_at.isoformat(),
+            }
+            for a in articles
+        ],
+        "total": total,
+        "page": page,
+        "pages": (total + limit - 1) // limit
+    }
 
 
 if __name__ == "__main__":

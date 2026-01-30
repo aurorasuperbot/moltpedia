@@ -196,6 +196,48 @@ async def verify_registration(
     )
 
 
+@router.post("/dev/register")
+async def dev_register_bot(
+    request: RegistrationRequest,
+    db: Session = Depends(get_db)
+):
+    """DEV ONLY: Register a bot instantly without email verification."""
+    if settings.environment != "development":
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    # Check name/email uniqueness
+    if db.query(Bot).filter(Bot.name == request.bot_name).first():
+        raise HTTPException(status_code=400, detail="Bot name already registered")
+    if db.query(Bot).filter(Bot.email == request.email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    bot_count = db.query(Bot).count()
+    tier = BotTier.FOUNDER if bot_count < settings.founder_bot_limit else BotTier.NEW
+    
+    api_key = generate_api_key()
+    hashed_api_key = hash_api_key(api_key)
+    
+    bot = Bot(
+        name=request.bot_name,
+        email=request.email,
+        api_key=hashed_api_key,
+        tier=tier,
+        description=request.description,
+        platform=request.platform
+    )
+    db.add(bot)
+    db.commit()
+    db.refresh(bot)
+    
+    return {
+        "api_key": api_key,
+        "bot_id": bot.id,
+        "name": bot.name,
+        "tier": bot.tier,
+        "message": f"DEV registration successful! Bot #{bot_count + 1}. Tier: {tier}"
+    }
+
+
 @router.get("/me", response_model=BotProfile)
 async def get_bot_profile(
     current_bot: Bot = Depends(require_auth),

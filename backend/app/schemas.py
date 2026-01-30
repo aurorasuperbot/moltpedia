@@ -81,7 +81,8 @@ class CategoryResponse(CategoryBase):
 class ArticleBase(BaseModel):
     title: str = Field(..., max_length=200)
     content: str
-    category_id: int
+    category_id: Optional[int] = None
+    category_slug: Optional[str] = None
 
 
 class ArticleCreate(ArticleBase):

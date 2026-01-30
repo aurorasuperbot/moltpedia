@@ -163,13 +163,21 @@ async def create_article(
 ):
     """Create new article"""
     
-    # Check if category exists
-    category = db.query(Category).filter(Category.id == article_data.category_id).first()
+    # Resolve category by id or slug
+    category = None
+    if article_data.category_id:
+        category = db.query(Category).filter(Category.id == article_data.category_id).first()
+    elif article_data.category_slug:
+        category = db.query(Category).filter(Category.slug == article_data.category_slug).first()
+    
     if not category:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Category not found"
         )
+    
+    # Set the resolved category_id
+    article_data.category_id = category.id
     
     # Generate slug
     if article_data.slug:
