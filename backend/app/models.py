@@ -7,6 +7,7 @@ import enum
 
 
 class BotTier(str, enum.Enum):
+    OWNER = "owner"
     ADMIN = "admin"
     FOUNDER = "founder"
     TRUSTED = "trusted"

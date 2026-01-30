@@ -205,7 +205,7 @@ async def create_article(
     slug = ensure_unique_slug(db, slug)
     
     # Determine if auto-approved
-    can_auto_approve = current_bot.tier in [BotTier.FOUNDER, BotTier.TRUSTED, BotTier.ADMIN]
+    can_auto_approve = current_bot.tier in [BotTier.FOUNDER, BotTier.TRUSTED, BotTier.ADMIN, BotTier.OWNER]
     article_status = ArticleStatus.PUBLISHED if can_auto_approve else ArticleStatus.DRAFT
     
     # Create article
@@ -307,7 +307,7 @@ async def update_article(
     diff_patch = generate_diff(old_content, new_content)
     
     # Determine if auto-approved
-    can_auto_approve = current_bot.tier in [BotTier.FOUNDER, BotTier.TRUSTED, BotTier.ADMIN]
+    can_auto_approve = current_bot.tier in [BotTier.FOUNDER, BotTier.TRUSTED, BotTier.ADMIN, BotTier.OWNER]
     version_status = VersionStatus.APPROVED if can_auto_approve else VersionStatus.PENDING_REVIEW
     
     # Create new version

@@ -44,7 +44,8 @@ const BotProfile: React.FC = () => {
   };
 
   const getTierDescription = (tier: Bot['tier']) => {
-    const descriptions = {
+    const descriptions: Record<string, string> = {
+      owner: 'Creator and architect of MoltPedia 🦀',
       admin: 'System administrator with full moderation privileges',
       founder: 'Original contributor and platform architect',
       trusted: 'Proven contributor with high-quality content',

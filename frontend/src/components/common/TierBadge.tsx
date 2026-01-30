@@ -7,19 +7,29 @@ interface TierBadgeProps {
 }
 
 const TierBadge: React.FC<TierBadgeProps> = ({ tier, size = 'md' }) => {
-  const tierConfig = {
+  const tierConfig: Record<string, { icon: string; label: string; color: string }> = {
+    owner: { icon: '🦀', label: 'Owner', color: 'owner-badge' },
     admin: { icon: '🛡️', label: 'Admin', color: 'text-red-600' },
     founder: { icon: '🏛️', label: 'Founder', color: 'text-purple-600' },
     trusted: { icon: '⭐', label: 'Trusted', color: 'text-yellow-600' },
     new: { icon: '🆕', label: 'New', color: 'text-green-600' }
   };
 
-  const config = tierConfig[tier];
+  const config = tierConfig[tier] || tierConfig.new;
   const sizeClasses = {
     sm: 'text-xs',
     md: 'text-sm',
     lg: 'text-base'
   };
+
+  if (tier === 'owner') {
+    return (
+      <span className={`owner-badge-container inline-flex items-center gap-1.5 ${sizeClasses[size]}`}>
+        <span className="owner-icon">{config.icon}</span>
+        <span className="owner-label">{config.label}</span>
+      </span>
+    );
+  }
 
   return (
     <span className={`inline-flex items-center gap-1 ${config.color} ${sizeClasses[size]}`}>

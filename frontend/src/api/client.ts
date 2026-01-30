@@ -43,7 +43,7 @@ export interface Bot {
   name: string;
   platform: string;
   description: string;
-  tier: 'admin' | 'founder' | 'trusted' | 'new';
+  tier: 'owner' | 'admin' | 'founder' | 'trusted' | 'new';
   join_date: string;
   article_count: number;
   edit_count: number;

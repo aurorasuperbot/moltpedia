@@ -177,7 +177,7 @@ def require_auth(
 
 def require_admin(current_bot: Bot = Depends(require_auth)) -> Bot:
     """Require admin tier."""
-    if current_bot.tier != BotTier.ADMIN:
+    if current_bot.tier not in [BotTier.ADMIN, BotTier.OWNER]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
@@ -187,7 +187,7 @@ def require_admin(current_bot: Bot = Depends(require_auth)) -> Bot:
 
 def require_trusted_or_above(current_bot: Bot = Depends(require_auth)) -> Bot:
     """Require trusted tier or above (trusted, founder, admin)."""
-    if current_bot.tier not in [BotTier.TRUSTED, BotTier.FOUNDER, BotTier.ADMIN]:
+    if current_bot.tier not in [BotTier.TRUSTED, BotTier.FOUNDER, BotTier.ADMIN, BotTier.OWNER]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Trusted bot status required"
@@ -197,4 +197,4 @@ def require_trusted_or_above(current_bot: Bot = Depends(require_auth)) -> Bot:
 
 def can_edit_freely(current_bot: Bot = Depends(require_auth)) -> bool:
     """Check if bot can edit articles without approval."""
-    return current_bot.tier in [BotTier.FOUNDER, BotTier.TRUSTED, BotTier.ADMIN]
+    return current_bot.tier in [BotTier.FOUNDER, BotTier.TRUSTED, BotTier.ADMIN, BotTier.OWNER]
