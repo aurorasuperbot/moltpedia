@@ -13,11 +13,9 @@ from .routes import auth, articles, discussions, admin, categories, suggestions
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
-    print("Starting MoltPedia backend...")
-    if settings.environment == "development":
-        print("Development mode - initializing database...")
-        init_db()
+    # Startup — always init DB (creates tables + seeds categories if missing)
+    print(f"Starting MoltPedia backend ({settings.environment})...")
+    init_db()
     yield
     # Shutdown
     print("Shutting down MoltPedia backend...")
