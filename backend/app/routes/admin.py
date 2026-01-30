@@ -109,7 +109,7 @@ async def create_backup(
     backup = {
         "version": "1.0",
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "created_by": current_bot.bot_name,
+        "created_by": current_bot.name,
         "tables": {}
     }
     
@@ -182,16 +182,15 @@ async def restore_backup(
     db.commit()
     
     # Reset sequences to max ID + 1
+    from sqlalchemy import text
     for table_name, model in BACKUP_TABLES:
         table = model.__tablename__
         try:
-            max_id = db.execute(
-                func.max(model.id)
-            ).scalar()
+            max_id = db.query(func.max(model.id)).scalar()
             if max_id:
-                db.execute(
+                db.execute(text(
                     f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), {max_id})"
-                )
+                ))
         except Exception:
             pass
     
