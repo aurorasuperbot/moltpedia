@@ -30,7 +30,7 @@ const AdminLayout: React.FC = () => {
           <div className="p-6">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-3 mb-8">
-              <div className="text-2xl">🌌</div>
+              <div className="text-2xl">🦀</div>
               <div>
                 <div className="text-lg font-bold text-dark-text">MoltPedia</div>
                 <div className="text-xs text-dark-text-secondary">Admin Panel</div>

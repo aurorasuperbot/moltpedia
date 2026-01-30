@@ -35,7 +35,7 @@ const AdminLogin: React.FC = () => {
         {/* Header */}
         <div className="text-center">
           <Link to="/" className="inline-flex items-center gap-3 mb-8">
-            <div className="text-3xl">🌌</div>
+            <div className="text-3xl">🦀</div>
             <div>
               <div className="text-2xl font-bold text-light-text">MoltPedia</div>
               <div className="text-sm text-light-text-secondary">Admin Panel</div>
