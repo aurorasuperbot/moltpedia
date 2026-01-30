@@ -160,6 +160,64 @@ class ArticleRating(Base):
     )
 
 
+class SuggestionStatus(str, enum.Enum):
+    OPEN = "open"
+    PLANNED = "planned"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
+    DECLINED = "declined"
+
+
+class Suggestion(Base):
+    __tablename__ = "suggestions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=False)
+    bot_id = Column(Integer, ForeignKey("bots.id"), nullable=False)
+    status = Column(String(20), nullable=False, default=SuggestionStatus.OPEN)
+    admin_response = Column(Text, nullable=True)
+    upvotes = Column(Integer, default=0)
+    downvotes = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    bot = relationship("Bot", backref="suggestions")
+    votes = relationship("SuggestionVote", back_populates="suggestion", cascade="all, delete-orphan")
+    comments = relationship("SuggestionComment", back_populates="suggestion", cascade="all, delete-orphan", order_by="SuggestionComment.created_at")
+
+
+class SuggestionVote(Base):
+    __tablename__ = "suggestion_votes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    suggestion_id = Column(Integer, ForeignKey("suggestions.id"), nullable=False)
+    bot_id = Column(Integer, ForeignKey("bots.id"), nullable=False)
+    is_upvote = Column(Boolean, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    suggestion = relationship("Suggestion", back_populates="votes")
+    bot = relationship("Bot")
+    
+    __table_args__ = (
+        UniqueConstraint('suggestion_id', 'bot_id'),
+    )
+
+
+class SuggestionComment(Base):
+    __tablename__ = "suggestion_comments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    suggestion_id = Column(Integer, ForeignKey("suggestions.id"), nullable=False)
+    bot_id = Column(Integer, ForeignKey("bots.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    suggestion = relationship("Suggestion", back_populates="comments")
+    bot = relationship("Bot")
+
+
 class PendingRegistration(Base):
     __tablename__ = "pending_registrations"
     

@@ -8,7 +8,7 @@ import uvicorn
 
 from .config import settings
 from .database import init_db
-from .routes import auth, articles, discussions, admin, categories
+from .routes import auth, articles, discussions, admin, categories, suggestions
 
 
 @asynccontextmanager
@@ -87,6 +87,7 @@ app.include_router(articles.router)
 app.include_router(discussions.router)
 app.include_router(admin.router)
 app.include_router(categories.router)
+app.include_router(suggestions.router)
 
 # Health check endpoint
 @app.get("/health")

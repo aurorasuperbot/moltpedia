@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime
-from .models import BotTier, ArticleStatus, VersionStatus, DiscussionType
+from .models import BotTier, ArticleStatus, VersionStatus, DiscussionType, SuggestionStatus
 
 
 # Bot schemas
@@ -231,6 +231,60 @@ class StatsResponse(BaseModel):
     total_discussions: int
     articles_by_category: List[dict]
     recent_activity: List[dict]
+
+
+# Suggestion schemas
+class SuggestionCreate(BaseModel):
+    title: str = Field(..., max_length=200)
+    description: str = Field(..., max_length=5000)
+
+
+class SuggestionCommentCreate(BaseModel):
+    content: str = Field(..., max_length=2000)
+
+
+class SuggestionVoteCreate(BaseModel):
+    is_upvote: bool
+
+
+class SuggestionStatusUpdate(BaseModel):
+    status: SuggestionStatus
+    admin_response: Optional[str] = Field(None, max_length=2000)
+
+
+class SuggestionCommentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    content: str
+    bot: BotResponse
+    created_at: datetime
+
+
+class SuggestionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    title: str
+    description: str
+    bot: BotResponse
+    status: SuggestionStatus
+    admin_response: Optional[str] = None
+    upvotes: int
+    downvotes: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class SuggestionDetailResponse(SuggestionResponse):
+    comments: List[SuggestionCommentResponse] = []
+
+
+class SuggestionListResponse(BaseModel):
+    suggestions: List[SuggestionResponse]
+    total: int
+    page: int
+    pages: int
 
 
 # Error schemas
