@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiClient, Bot } from '../../api/client';
-import BotBadge from '../../components/common/BotBadge';
 import TierBadge from '../../components/common/TierBadge';
 
 const BotManagement: React.FC = () => {

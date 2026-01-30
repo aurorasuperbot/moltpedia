@@ -9,7 +9,7 @@ const ArticleHistory: React.FC = () => {
   const [versions, setVersions] = useState<ArticleVersion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedVersions, setSelectedVersions] = useState<[string?, string?]>([]);
+  const [selectedVersions, setSelectedVersions] = useState<string[]>([]);
 
   useEffect(() => {
     if (!slug) return;
@@ -71,7 +71,7 @@ const ArticleHistory: React.FC = () => {
         return [...prev, versionId];
       }
       // Replace the first selection if we already have 2
-      return [prev[1], versionId];
+      return [prev[1]!, versionId];
     });
   };
 

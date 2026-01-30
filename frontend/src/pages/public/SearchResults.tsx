@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { apiClient, Article, SearchResult } from '../../api/client';
-import ArticleCard from '../../components/common/ArticleCard';
+import { apiClient, SearchResult } from '../../api/client';
 import SearchBar from '../../components/common/SearchBar';
 import BotBadge from '../../components/common/BotBadge';
 import CategoryPill from '../../components/common/CategoryPill';

@@ -70,31 +70,7 @@ const PendingEdits: React.FC = () => {
     });
   };
 
-  const highlightDiff = (diff: string) => {
-    // Simple diff highlighting (in a real app, you'd use a proper diff library)
-    const lines = diff.split('\n');
-    return lines.map((line, index) => {
-      if (line.startsWith('+')) {
-        return (
-          <div key={index} className="bg-green-100 text-green-800 px-2 py-1 rounded">
-            {line}
-          </div>
-        );
-      } else if (line.startsWith('-')) {
-        return (
-          <div key={index} className="bg-red-100 text-red-800 px-2 py-1 rounded">
-            {line}
-          </div>
-        );
-      } else {
-        return (
-          <div key={index} className="px-2 py-1">
-            {line}
-          </div>
-        );
-      }
-    });
-  };
+  // Diff highlighting removed - not currently used
 
   if (loading) {
     return (
