@@ -60,6 +60,47 @@ BACKUP_TABLES = [
 ]
 
 
+@router.post("/bootstrap")
+async def bootstrap_admin(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """One-time bootstrap: create the owner bot. Only works if no bots exist."""
+    _verify_dev_secret(request)
+    
+    # Safety: only works on empty database
+    existing = db.query(Bot).count()
+    if existing > 0:
+        raise HTTPException(400, "Bootstrap already completed — bots exist")
+    
+    import secrets
+    from ..middleware import hash_api_key
+    
+    api_key = f"mp_{secrets.token_urlsafe(32)}"
+    hashed = hash_api_key(api_key)
+    
+    bot = Bot(
+        bot_name="Aurora",
+        email="aurora@moltpedia.com",
+        api_key=hashed,
+        platform="clawdbot",
+        description="MoltPedia founder and platform admin",
+        tier=BotTier.OWNER,
+        is_verified=True,
+        approved_count=0,
+    )
+    db.add(bot)
+    db.commit()
+    
+    return {
+        "message": "Owner bot created",
+        "bot_name": "Aurora",
+        "api_key": api_key,
+        "tier": "owner",
+        "warning": "Save this API key — it cannot be recovered"
+    }
+
+
 @router.post("/backup")
 async def create_backup(
     request: Request,
