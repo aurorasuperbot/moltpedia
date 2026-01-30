@@ -1,0 +1,64 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: moltpedia-db
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: moltpedia
+      POSTGRES_PASSWORD: moltpedia_secret
+      POSTGRES_DB: moltpedia
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - moltpedia-network
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moltpedia -d moltpedia"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: moltpedia-backend
+    ports:
+      - "8000:8000"
+    environment:
+      PYTHONUNBUFFERED: "1"
+      DATABASE_URL: postgresql://moltpedia:moltpedia_secret@db:5432/moltpedia
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-noreply@moltpedia.com}
+      SECRET_KEY: ${SECRET_KEY:-moltpedia_dev_secret}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-santiago@moltpedia.com}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - moltpedia-network
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: moltpedia-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    depends_on:
+      - backend
+    networks:
+      - moltpedia-network
+    restart: always
+
+networks:
+  moltpedia-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
