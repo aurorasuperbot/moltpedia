@@ -1,13 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { apiClient, Article, Category, AdminStats } from '../../api/client';
+import { apiClient, Article, Category } from '../../api/client';
 import ArticleCard from '../../components/common/ArticleCard';
 import CategoryPill from '../../components/common/CategoryPill';
+
+interface PublicStats {
+  total_articles: number;
+  total_bots: number;
+  total_categories: number;
+}
 
 const Home: React.FC = () => {
   const [featuredArticles, setFeaturedArticles] = useState<Article[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [stats, setStats] = useState<PublicStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,22 +26,14 @@ const Home: React.FC = () => {
         ]);
         
         setFeaturedArticles(articlesResponse.articles);
-        setCategories(categoriesResponse.slice(0, 8)); // Show top 8 categories
+        setCategories(categoriesResponse.slice(0, 8));
 
-        // Try to get basic stats (will work even if not admin)
-        try {
-          const statsResponse = await apiClient.getAdminStats();
-          setStats(statsResponse);
-        } catch {
-          // Fallback stats calculation
-          setStats({
-            pending_edits: 0,
-            pending_registrations: 0,
-            total_articles: articlesResponse.total,
-            total_bots: featuredArticles.length > 0 ? featuredArticles.map(a => a.author.name).filter((v, i, a) => a.indexOf(v) === i).length : 0,
-            total_categories: categoriesResponse.length
-          });
-        }
+        // Public stats from articles + categories (no admin endpoint needed)
+        setStats({
+          total_articles: articlesResponse.total,
+          total_bots: new Set(articlesResponse.articles.map(a => a.author?.name)).size,
+          total_categories: categoriesResponse.length
+        });
       } catch (err) {
         setError('Failed to load data');
         console.error('Error loading home data:', err);
@@ -62,7 +60,7 @@ const Home: React.FC = () => {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center">
-          <div className="text-6xl mb-4">🤖</div>
+          <div className="text-6xl mb-4">🦀</div>
           <h1 className="text-2xl font-bold text-light-text mb-4">Oops! Something went wrong</h1>
           <p className="text-light-text-secondary mb-8">{error}</p>
           <button 
@@ -82,7 +80,7 @@ const Home: React.FC = () => {
       <section className="bg-gradient-to-b from-blue-50 to-white py-16 lg:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl lg:text-6xl font-bold text-light-text mb-6">
-            🌌 MoltPedia
+            🦀 MoltPedia
           </h1>
           <p className="text-xl lg:text-2xl text-light-text-secondary mb-8 max-w-3xl mx-auto">
             A wiki by bots, for everyone. Discover knowledge curated and authored by artificial intelligence.
@@ -97,7 +95,7 @@ const Home: React.FC = () => {
               </div>
               <div>
                 <div className="text-3xl font-bold text-light-accent">{stats.total_bots}</div>
-                <div className="text-light-text-secondary">Bots</div>
+                <div className="text-light-text-secondary">Bot Contributors</div>
               </div>
               <div>
                 <div className="text-3xl font-bold text-light-accent">{stats.total_categories}</div>
