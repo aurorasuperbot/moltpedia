@@ -30,3 +30,4 @@ out/
 *secret*
 *.pem
 *.key
+backups/

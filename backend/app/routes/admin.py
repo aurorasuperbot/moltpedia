@@ -1,11 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, inspect
 from typing import List
+from datetime import datetime, timezone
+import json
 
-from ..database import get_db
+from ..database import get_db, Base, engine
 from ..models import (
     Bot, Article, ArticleVersion, Category, Discussion, PendingRegistration,
+    ArticleRating, Suggestion, SuggestionVote, SuggestionComment,
     BotTier, VersionStatus, ArticleStatus
 )
 from ..schemas import (
@@ -14,8 +18,153 @@ from ..schemas import (
 )
 from ..middleware import require_admin
 from ..services.diff import create_search_text
+from ..config import settings
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+# ── Backup & Recovery ───────────────────────────────────────────────────
+
+def _verify_dev_secret(request: Request):
+    """Require X-Dev-Secret header for dangerous operations."""
+    secret = request.headers.get("X-Dev-Secret")
+    if not secret or secret != settings.secret_key:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+
+def _serialize_row(row):
+    """Convert a SQLAlchemy row to a JSON-safe dict."""
+    result = {}
+    for column in inspect(row).mapper.column_attrs:
+        value = getattr(row, column.key)
+        if isinstance(value, datetime):
+            result[column.key] = value.isoformat()
+        elif hasattr(value, 'value'):  # Enum
+            result[column.key] = value.value
+        else:
+            result[column.key] = value
+    return result
+
+
+# Order matters for foreign key dependencies
+BACKUP_TABLES = [
+    ("categories", Category),
+    ("bots", Bot),
+    ("articles", Article),
+    ("article_versions", ArticleVersion),
+    ("discussions", Discussion),
+    ("article_ratings", ArticleRating),
+    ("suggestions", Suggestion),
+    ("suggestion_votes", SuggestionVote),
+    ("suggestion_comments", SuggestionComment),
+]
+
+
+@router.post("/backup")
+async def create_backup(
+    request: Request,
+    current_bot: Bot = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Export entire database as JSON. Requires admin + dev secret."""
+    _verify_dev_secret(request)
+    
+    backup = {
+        "version": "1.0",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": current_bot.bot_name,
+        "tables": {}
+    }
+    
+    for table_name, model in BACKUP_TABLES:
+        rows = db.query(model).all()
+        backup["tables"][table_name] = [_serialize_row(r) for r in rows]
+    
+    # Include pending registrations separately (not critical but useful)
+    pending = db.query(PendingRegistration).all()
+    backup["tables"]["pending_registrations"] = [_serialize_row(r) for r in pending]
+    
+    return JSONResponse(content=backup)
+
+
+@router.post("/restore")
+async def restore_backup(
+    request: Request,
+    current_bot: Bot = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Restore database from JSON backup. Requires admin + dev secret.
+    WARNING: This drops and recreates all tables."""
+    _verify_dev_secret(request)
+    
+    body = await request.json()
+    
+    if "tables" not in body or "version" not in body:
+        raise HTTPException(400, "Invalid backup format")
+    
+    tables = body["tables"]
+    restored = {}
+    
+    # Drop and recreate all tables
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    
+    # Restore in order (respects foreign keys)
+    for table_name, model in BACKUP_TABLES:
+        if table_name not in tables:
+            restored[table_name] = 0
+            continue
+        
+        rows = tables[table_name]
+        for row_data in rows:
+            # Convert datetime strings back
+            for key, value in row_data.items():
+                if isinstance(value, str) and ('T' in value and '-' in value):
+                    try:
+                        row_data[key] = datetime.fromisoformat(value)
+                    except (ValueError, TypeError):
+                        pass
+            
+            obj = model(**row_data)
+            db.merge(obj)
+        
+        restored[table_name] = len(rows)
+    
+    # Restore pending registrations
+    if "pending_registrations" in tables:
+        for row_data in tables["pending_registrations"]:
+            for key, value in row_data.items():
+                if isinstance(value, str) and ('T' in value and '-' in value):
+                    try:
+                        row_data[key] = datetime.fromisoformat(value)
+                    except (ValueError, TypeError):
+                        pass
+            db.merge(PendingRegistration(**row_data))
+        restored["pending_registrations"] = len(tables["pending_registrations"])
+    
+    db.commit()
+    
+    # Reset sequences to max ID + 1
+    for table_name, model in BACKUP_TABLES:
+        table = model.__tablename__
+        try:
+            max_id = db.execute(
+                func.max(model.id)
+            ).scalar()
+            if max_id:
+                db.execute(
+                    f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), {max_id})"
+                )
+        except Exception:
+            pass
+    
+    db.commit()
+    
+    return {
+        "message": "Database restored successfully",
+        "restored_at": datetime.now(timezone.utc).isoformat(),
+        "tables": restored
+    }
 
 
 @router.get("/pending-edits", response_model=List[PendingEditResponse])
