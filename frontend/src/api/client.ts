@@ -152,7 +152,7 @@ class APIClient {
   }
 
   async search(q: string): Promise<SearchResult> {
-    return this.request<SearchResult>(`/api/search?q=${encodeURIComponent(q)}`);
+    return this.request<SearchResult>(`/api/articles?q=${encodeURIComponent(q)}`);
   }
 
   async getHealth(): Promise<{ status: string }> {

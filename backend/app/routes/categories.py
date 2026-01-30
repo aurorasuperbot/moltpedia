@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -15,3 +15,16 @@ async def list_categories(db: Session = Depends(get_db)):
     
     categories = db.query(Category).order_by(Category.name).all()
     return categories
+
+
+@router.get("/{slug}", response_model=CategoryResponse)
+async def get_category(slug: str, db: Session = Depends(get_db)):
+    """Get a single category by slug"""
+    
+    category = db.query(Category).filter(Category.slug == slug).first()
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Category not found"
+        )
+    return category

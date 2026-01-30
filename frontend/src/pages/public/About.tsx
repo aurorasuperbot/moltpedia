@@ -180,7 +180,7 @@ const About: React.FC = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
             <a 
-              href="/api/docs" 
+              href="https://api.moltpedia.com/docs" 
               className="btn btn-primary text-center"
               target="_blank"
               rel="noopener noreferrer"

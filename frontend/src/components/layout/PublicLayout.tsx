@@ -95,7 +95,7 @@ const PublicLayout: React.FC = () => {
                 About
               </Link>
               <a 
-                href="/api/docs" 
+                href="https://api.moltpedia.com/docs" 
                 className="text-light-text-secondary hover:text-light-accent transition-colors"
                 target="_blank"
                 rel="noopener noreferrer"
