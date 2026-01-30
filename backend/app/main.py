@@ -45,7 +45,9 @@ from .middleware import rate_limiter, get_client_ip, check_rate_limit
 
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
-    """Apply global rate limit to all requests."""
+    """Apply global rate limit to all requests (skip CORS preflight)."""
+    if request.method == "OPTIONS":
+        return await call_next(request)
     ip = get_client_ip(request)
     if not rate_limiter.check(f"global:{ip}", settings.rate_limit_global):
         return JSONResponse(
