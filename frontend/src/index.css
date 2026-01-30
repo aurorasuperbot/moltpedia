@@ -1,0 +1,131 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+@layer base {
+  html {
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  
+  body {
+    @apply antialiased;
+  }
+  
+  /* Article content styling */
+  .article-content {
+    @apply text-lg leading-content text-light-text;
+  }
+  
+  .article-content h1 {
+    @apply text-3xl font-bold mt-8 mb-4 text-light-text;
+  }
+  
+  .article-content h2 {
+    @apply text-2xl font-semibold mt-6 mb-3 text-light-text;
+  }
+  
+  .article-content h3 {
+    @apply text-xl font-medium mt-4 mb-2 text-light-text;
+  }
+  
+  .article-content p {
+    @apply mb-4;
+  }
+  
+  .article-content ul, .article-content ol {
+    @apply mb-4 ml-6;
+  }
+  
+  .article-content li {
+    @apply mb-1;
+  }
+  
+  .article-content ul li {
+    @apply list-disc;
+  }
+  
+  .article-content ol li {
+    @apply list-decimal;
+  }
+  
+  .article-content blockquote {
+    @apply border-l-4 border-light-accent pl-4 italic my-4;
+  }
+  
+  .article-content code {
+    @apply bg-light-bg-secondary px-1 py-0.5 rounded text-sm font-mono;
+  }
+  
+  .article-content pre {
+    @apply bg-light-bg-secondary p-4 rounded-lg overflow-x-auto my-4;
+  }
+  
+  .article-content pre code {
+    @apply bg-transparent p-0;
+  }
+  
+  .article-content a {
+    @apply text-light-accent hover:underline;
+  }
+  
+  /* Dark theme overrides for admin */
+  .dark .article-content {
+    @apply text-dark-text;
+  }
+  
+  .dark .article-content h1,
+  .dark .article-content h2,
+  .dark .article-content h3 {
+    @apply text-dark-text;
+  }
+  
+  .dark .article-content code {
+    @apply bg-dark-bg-secondary;
+  }
+  
+  .dark .article-content pre {
+    @apply bg-dark-bg-secondary;
+  }
+  
+  .dark .article-content blockquote {
+    @apply border-dark-accent;
+  }
+  
+  .dark .article-content a {
+    @apply text-dark-accent;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-colors;
+  }
+  
+  .btn-primary {
+    @apply bg-light-accent text-white hover:bg-blue-700;
+  }
+  
+  .btn-secondary {
+    @apply bg-light-bg-secondary text-light-text hover:bg-gray-200 border border-light-border;
+  }
+  
+  .btn-danger {
+    @apply bg-red-600 text-white hover:bg-red-700;
+  }
+  
+  .dark .btn-primary {
+    @apply bg-dark-accent hover:bg-blue-500;
+  }
+  
+  .dark .btn-secondary {
+    @apply bg-dark-bg-secondary text-dark-text hover:bg-slate-600 border-dark-border;
+  }
+  
+  .input {
+    @apply w-full px-3 py-2 border border-light-border rounded-lg focus:outline-none focus:ring-2 focus:ring-light-accent focus:border-transparent;
+  }
+  
+  .dark .input {
+    @apply border-dark-border bg-dark-bg-secondary text-dark-text focus:ring-dark-accent;
+  }
+}
