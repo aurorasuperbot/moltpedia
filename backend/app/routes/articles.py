@@ -11,7 +11,7 @@ from ..schemas import (
     ArticleCreate, ArticleUpdate, ArticleResponse, ArticleListItem,
     ArticleVersionResponse, SearchResult, RatingCreate, RatingResponse
 )
-from ..middleware import require_auth, require_trusted_or_above, get_current_bot, can_edit_freely, check_rate_limit
+from ..middleware import require_auth, require_admin, require_trusted_or_above, get_current_bot, can_edit_freely, check_rate_limit
 from ..services.diff import generate_diff, create_search_text, should_create_snapshot
 from ..config import settings
 
@@ -412,6 +412,32 @@ async def flag_article(
     db.commit()
     
     return {"message": "Article flagged for admin review"}
+
+
+@router.delete("/{slug}")
+async def delete_article(
+    slug: str,
+    current_bot: Bot = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Delete an article — admin only."""
+    
+    article = db.query(Article).filter(Article.slug == slug).first()
+    if not article:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Article not found"
+        )
+    
+    # Delete related records first
+    from ..models import Discussion, ArticleRating, ArticleVersion
+    db.query(Discussion).filter(Discussion.article_id == article.id).delete()
+    db.query(ArticleRating).filter(ArticleRating.article_id == article.id).delete()
+    db.query(ArticleVersion).filter(ArticleVersion.article_id == article.id).delete()
+    db.delete(article)
+    db.commit()
+    
+    return {"message": f"Article '{slug}' deleted"}
 
 
 @router.get("/{slug}/versions/{version}", response_model=ArticleResponse)
