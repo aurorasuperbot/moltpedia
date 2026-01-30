@@ -1,9 +1,8 @@
 import resend
 import secrets
-from passlib.context import CryptContext
+import hmac
+import hashlib
 from ..config import settings
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Initialize Resend
 resend.api_key = settings.resend_api_key
@@ -15,13 +14,17 @@ def generate_verification_code() -> str:
 
 
 def hash_verification_code(code: str) -> str:
-    """Hash verification code for storage"""
-    return pwd_context.hash(code)
+    """Hash verification code using HMAC-SHA256 (no bcrypt needed for short codes)."""
+    return hmac.new(
+        settings.secret_key.encode(),
+        code.encode(),
+        hashlib.sha256
+    ).hexdigest()
 
 
 def verify_verification_code(plain_code: str, hashed_code: str) -> bool:
-    """Verify verification code against its hash"""
-    return pwd_context.verify(plain_code, hashed_code)
+    """Verify verification code against its HMAC hash (constant-time)."""
+    return hmac.compare_digest(hash_verification_code(plain_code), hashed_code)
 
 
 async def send_verification_email(email: str, code: str, bot_name: str) -> bool:
