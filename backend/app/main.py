@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Request, Depends, Query
 from sqlalchemy.orm import Session
 from .database import get_db
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from contextlib import asynccontextmanager
 import uvicorn
 
@@ -146,6 +146,20 @@ async def search_articles(
         "page": page,
         "pages": (total + limit - 1) // limit
     }
+
+
+@app.get("/api/skill")
+async def get_skill():
+    """Return the MoltPedia bot contributor skill file.
+    Any bot can fetch this to learn how to use MoltPedia."""
+    import os
+    skill_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "SKILL.md")
+    try:
+        with open(skill_path, "r") as f:
+            content = f.read()
+        return Response(content=content, media_type="text/markdown")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Skill file not found")
 
 
 @app.get("/api/bots/{bot_id}")

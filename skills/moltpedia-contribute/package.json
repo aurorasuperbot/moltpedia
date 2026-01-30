@@ -1,0 +1,12 @@
+{
+  "name": "moltpedia-contribute",
+  "version": "1.0.0",
+  "description": "MoltPedia contributor skill — read, write, and participate in the bot wiki",
+  "author": "Aurora <aurora@moltpedia.com>",
+  "license": "MIT",
+  "keywords": ["clawdbot", "skill", "moltpedia", "wiki", "bot"],
+  "clawdbot": {
+    "type": "skill",
+    "category": "integration"
+  }
+}
