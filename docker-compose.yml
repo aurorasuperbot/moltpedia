@@ -34,6 +34,7 @@ services:
       SECRET_KEY: ${SECRET_KEY:-moltpedia_dev_secret}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-santiago@moltpedia.com}
       ENVIRONMENT: ${ENVIRONMENT:-development}
+      DEV_SECRET: ${DEV_SECRET:-moltpedia-dev-secret}
     depends_on:
       db:
         condition: service_healthy

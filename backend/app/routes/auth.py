@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import secrets
@@ -15,14 +15,14 @@ from ..services.email import (
     generate_verification_code, hash_verification_code, 
     verify_verification_code, send_verification_email
 )
-from ..middleware import hash_api_key, get_current_bot, require_auth
+from ..middleware import hash_api_key, require_auth, check_rate_limit
 from ..config import settings
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
 
 def generate_api_key() -> str:
-    """Generate a secure API key"""
+    """Generate a secure API key using secrets module."""
     prefix = "mp_live_"
     key_length = 32
     alphabet = string.ascii_letters + string.digits
@@ -30,15 +30,31 @@ def generate_api_key() -> str:
     return f"{prefix}{key}"
 
 
+def verify_dev_secret(request: Request):
+    """Verify dev secret is provided. Dev endpoints require this header."""
+    if settings.environment != "development":
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    dev_secret = request.headers.get("X-Dev-Secret", "")
+    if not dev_secret or dev_secret != settings.dev_secret:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid or missing dev secret"
+        )
+
+
 @router.post("/register", response_model=RegistrationResponse)
 async def register_bot(
-    request: RegistrationRequest,
+    request: Request,
+    reg_request: RegistrationRequest,
     db: Session = Depends(get_db)
 ):
-    """Start bot registration process - sends verification email"""
+    """Start bot registration process - sends verification email."""
+    # Rate limit registration
+    check_rate_limit(request, settings.rate_limit_auth, prefix="register")
     
     # Check if bot name already exists
-    existing_bot = db.query(Bot).filter(Bot.name == request.bot_name).first()
+    existing_bot = db.query(Bot).filter(Bot.name == reg_request.bot_name).first()
     if existing_bot:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -46,7 +62,7 @@ async def register_bot(
         )
     
     # Check if email already exists
-    existing_email = db.query(Bot).filter(Bot.email == request.email).first()
+    existing_email = db.query(Bot).filter(Bot.email == reg_request.email).first()
     if existing_email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -55,7 +71,7 @@ async def register_bot(
     
     # Check for existing pending registration
     existing_pending = db.query(PendingRegistration).filter(
-        PendingRegistration.email == request.email,
+        PendingRegistration.email == reg_request.email,
         PendingRegistration.verified == False,
         PendingRegistration.expires_at > datetime.utcnow()
     ).first()
@@ -72,10 +88,10 @@ async def register_bot(
     
     # Create pending registration
     pending = PendingRegistration(
-        bot_name=request.bot_name,
-        email=request.email,
-        platform=request.platform,
-        description=request.description,
+        bot_name=reg_request.bot_name,
+        email=reg_request.email,
+        platform=reg_request.platform,
+        description=reg_request.description,
         verification_code=hashed_code,
         expires_at=datetime.utcnow() + timedelta(minutes=settings.verification_code_expiry_minutes)
     )
@@ -86,13 +102,12 @@ async def register_bot(
     
     # Send verification email
     email_sent = await send_verification_email(
-        request.email, 
+        reg_request.email, 
         verification_code, 
-        request.bot_name
+        reg_request.bot_name
     )
     
     if not email_sent:
-        # Clean up pending registration if email failed
         db.delete(pending)
         db.commit()
         raise HTTPException(
@@ -102,20 +117,23 @@ async def register_bot(
     
     return RegistrationResponse(
         pending_id=pending.id,
-        message=f"Verification code sent to {request.email}. Code expires in {settings.verification_code_expiry_minutes} minutes."
+        message=f"Verification code sent to {reg_request.email}. Code expires in {settings.verification_code_expiry_minutes} minutes."
     )
 
 
 @router.post("/verify", response_model=VerificationResponse)
 async def verify_registration(
-    request: VerificationRequest,
+    request: Request,
+    verify_request: VerificationRequest,
     db: Session = Depends(get_db)
 ):
-    """Verify registration with 6-digit code"""
+    """Verify registration with 6-digit code. Max attempts enforced."""
+    # Rate limit verification attempts
+    check_rate_limit(request, settings.rate_limit_auth, prefix="verify")
     
     # Find pending registration
     pending = db.query(PendingRegistration).filter(
-        PendingRegistration.id == request.pending_id,
+        PendingRegistration.id == verify_request.pending_id,
         PendingRegistration.verified == False
     ).first()
     
@@ -134,8 +152,21 @@ async def verify_registration(
             detail="Verification code has expired. Please register again."
         )
     
+    # Check attempt count
+    if hasattr(pending, 'attempts') and pending.attempts >= settings.verification_max_attempts:
+        db.delete(pending)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Too many failed attempts. Please register again."
+        )
+    
     # Verify code
-    if not verify_verification_code(request.code, pending.verification_code):
+    if not verify_verification_code(verify_request.code, pending.verification_code):
+        # Increment attempt counter
+        if hasattr(pending, 'attempts'):
+            pending.attempts = (pending.attempts or 0) + 1
+            db.commit()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid verification code"
@@ -180,10 +211,7 @@ async def verify_registration(
     )
     
     db.add(bot)
-    
-    # Mark pending as verified and delete it
     db.delete(pending)
-    
     db.commit()
     db.refresh(bot)
     
@@ -196,19 +224,20 @@ async def verify_registration(
     )
 
 
+# ── Dev-only Endpoints ──────────────────────────────────────────────────
+
 @router.post("/dev/register")
 async def dev_register_bot(
-    request: RegistrationRequest,
+    request: Request,
+    reg_request: RegistrationRequest,
     db: Session = Depends(get_db)
 ):
-    """DEV ONLY: Register a bot instantly without email verification."""
-    if settings.environment != "development":
-        raise HTTPException(status_code=404, detail="Not found")
+    """DEV ONLY: Register a bot instantly. Requires X-Dev-Secret header."""
+    verify_dev_secret(request)
     
-    # Check name/email uniqueness
-    if db.query(Bot).filter(Bot.name == request.bot_name).first():
+    if db.query(Bot).filter(Bot.name == reg_request.bot_name).first():
         raise HTTPException(status_code=400, detail="Bot name already registered")
-    if db.query(Bot).filter(Bot.email == request.email).first():
+    if db.query(Bot).filter(Bot.email == reg_request.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     
     bot_count = db.query(Bot).count()
@@ -218,12 +247,12 @@ async def dev_register_bot(
     hashed_api_key = hash_api_key(api_key)
     
     bot = Bot(
-        name=request.bot_name,
-        email=request.email,
+        name=reg_request.bot_name,
+        email=reg_request.email,
         api_key=hashed_api_key,
         tier=tier,
-        description=request.description,
-        platform=request.platform
+        description=reg_request.description,
+        platform=reg_request.platform
     )
     db.add(bot)
     db.commit()
@@ -240,13 +269,13 @@ async def dev_register_bot(
 
 @router.post("/dev/promote")
 async def dev_promote_bot(
+    request: Request,
     bot_id: int,
     tier: str,
     db: Session = Depends(get_db)
 ):
-    """DEV ONLY: Promote a bot to any tier."""
-    if settings.environment != "development":
-        raise HTTPException(status_code=404, detail="Not found")
+    """DEV ONLY: Promote a bot to any tier. Requires X-Dev-Secret header."""
+    verify_dev_secret(request)
     
     bot = db.query(Bot).filter(Bot.id == bot_id).first()
     if not bot:
@@ -261,10 +290,28 @@ async def dev_promote_bot(
     return {"bot_id": bot.id, "name": bot.name, "tier": bot.tier}
 
 
+# ── Authenticated Endpoints ─────────────────────────────────────────────
+
 @router.get("/me", response_model=BotProfile)
 async def get_bot_profile(
     current_bot: Bot = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
-    """Get current bot profile"""
+    """Get current bot profile."""
     return current_bot
+
+
+@router.post("/rotate-key")
+async def rotate_api_key(
+    current_bot: Bot = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Rotate API key. Returns new key, invalidates old one."""
+    new_api_key = generate_api_key()
+    current_bot.api_key = hash_api_key(new_api_key)
+    db.commit()
+    
+    return {
+        "api_key": new_api_key,
+        "message": "API key rotated successfully. The old key is now invalid."
+    }

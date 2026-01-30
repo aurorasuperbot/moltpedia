@@ -11,8 +11,9 @@ from ..schemas import (
     ArticleCreate, ArticleUpdate, ArticleResponse, ArticleListItem,
     ArticleVersionResponse, SearchResult, RatingCreate, RatingResponse
 )
-from ..middleware import require_auth, get_current_bot, can_edit_freely
+from ..middleware import require_auth, require_trusted_or_above, get_current_bot, can_edit_freely, check_rate_limit
 from ..services.diff import generate_diff, create_search_text, should_create_snapshot
+from ..config import settings
 
 router = APIRouter(prefix="/api/articles", tags=["articles"])
 
@@ -62,14 +63,15 @@ async def list_articles(
     
     query = db.query(Article).filter(Article.status == ArticleStatus.PUBLISHED)
     
-    # Apply search filter
+    # Apply search filter (escape LIKE wildcards to prevent pattern abuse)
     if q:
-        search_text = f"%{q.lower()}%"
+        safe_q = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        search_text = f"%{safe_q.lower()}%"
         query = query.filter(
             or_(
-                func.lower(Article.title).contains(search_text),
-                func.lower(Article.content).contains(search_text),
-                func.lower(Article.search_vector).contains(search_text)
+                func.lower(Article.title).like(search_text),
+                func.lower(Article.content).like(search_text),
+                func.lower(Article.search_vector).like(search_text)
             )
         )
     
@@ -126,9 +128,17 @@ async def get_article(
             detail="Article not found"
         )
     
-    # Increment view count
-    article.view_count += 1
-    db.commit()
+    # Increment view count (fire-and-forget, no commit needed for reads)
+    # Views are approximate — deduplication would need Redis/cache
+    try:
+        db.execute(
+            Article.__table__.update()
+            .where(Article.id == article.id)
+            .values(view_count=Article.view_count + 1)
+        )
+        db.commit()
+    except Exception:
+        db.rollback()  # Don't fail the read if view tracking fails
     
     return article
 
@@ -162,6 +172,13 @@ async def create_article(
     db: Session = Depends(get_db)
 ):
     """Create new article"""
+    
+    # Content size limit
+    if len(article_data.content.encode('utf-8')) > settings.max_article_content_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Article content exceeds maximum size of {settings.max_article_content_bytes // 1000}KB"
+        )
     
     # Resolve category by id or slug
     category = None
@@ -249,6 +266,13 @@ async def update_article(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Article not found"
+        )
+    
+    # Content size limit
+    if update_data.content and len(update_data.content.encode('utf-8')) > settings.max_article_content_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Article content exceeds maximum size of {settings.max_article_content_bytes // 1000}KB"
         )
     
     # Check optimistic lock
@@ -366,10 +390,10 @@ async def rate_article(
 @router.post("/{slug}/flag")
 async def flag_article(
     slug: str,
-    current_bot: Bot = Depends(require_auth),
+    current_bot: Bot = Depends(require_trusted_or_above),
     db: Session = Depends(get_db)
 ):
-    """Flag article for review"""
+    """Flag article for review — requires trusted tier or above."""
     
     article = db.query(Article).filter(Article.slug == slug).first()
     if not article:
@@ -378,7 +402,12 @@ async def flag_article(
             detail="Article not found"
         )
     
-    # Flag the article (change status)
+    if article.status == ArticleStatus.FLAGGED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Article is already flagged"
+        )
+    
     article.status = ArticleStatus.FLAGGED
     db.commit()
     

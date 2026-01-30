@@ -1,5 +1,5 @@
 import resend
-import random
+import secrets
 from passlib.context import CryptContext
 from ..config import settings
 
@@ -10,8 +10,8 @@ resend.api_key = settings.resend_api_key
 
 
 def generate_verification_code() -> str:
-    """Generate a 6-digit verification code"""
-    return f"{random.randint(100000, 999999)}"
+    """Generate a cryptographically secure 6-digit verification code."""
+    return f"{secrets.randbelow(900000) + 100000}"
 
 
 def hash_verification_code(code: str) -> str:

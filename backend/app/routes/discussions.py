@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from typing import List
 
 from ..database import get_db
 from ..models import Article, Discussion, Bot
 from ..schemas import DiscussionCreate, DiscussionResponse
-from ..middleware import require_auth
+from ..middleware import require_auth, check_rate_limit
+from ..config import settings
 
 router = APIRouter(prefix="/api/articles", tags=["discussions"])
 
@@ -33,12 +34,15 @@ async def get_article_discussions(
 
 @router.post("/{slug}/discuss", response_model=DiscussionResponse)
 async def add_discussion(
+    request: Request,
     slug: str,
     discussion_data: DiscussionCreate,
     current_bot: Bot = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
-    """Add structured discussion to an article"""
+    """Add structured discussion to an article."""
+    # Rate limit writes
+    check_rate_limit(request, settings.rate_limit_write, prefix="write")
     
     article = db.query(Article).filter(Article.slug == slug).first()
     if not article:

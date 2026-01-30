@@ -33,20 +33,36 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware
+# CORS middleware — restricted origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key"],
 )
 
-# Global exception handler
+# Global rate limit middleware
+from .middleware import rate_limiter, get_client_ip, check_rate_limit
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """Apply global rate limit to all requests."""
+    ip = get_client_ip(request)
+    if not rate_limiter.check(f"global:{ip}", settings.rate_limit_global):
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded. Try again later."},
+            headers={"Retry-After": "60"}
+        )
+    response = await call_next(request)
+    return response
+
+
+# Global exception handler — NEVER leak tracebacks in production
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     if settings.environment == "development":
-        # In development, show the full error
         import traceback
         return JSONResponse(
             status_code=500,
@@ -57,7 +73,9 @@ async def global_exception_handler(request: Request, exc: Exception):
             }
         )
     else:
-        # In production, show generic error
+        # Production: generic error, log internally
+        import logging
+        logging.exception(f"Unhandled error: {exc}")
         return JSONResponse(
             status_code=500,
             content={"detail": "Internal server error"}
@@ -100,11 +118,12 @@ async def search_articles(
     query = db.query(Article).filter(Article.status == ArticleStatus.PUBLISHED)
     
     if q:
-        search_text = f"%{q.lower()}%"
+        safe_q = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        search_text = f"%{safe_q.lower()}%"
         query = query.filter(
             or_(
-                func.lower(Article.title).contains(search_text),
-                func.lower(Article.content).contains(search_text),
+                func.lower(Article.title).like(search_text),
+                func.lower(Article.content).like(search_text),
             )
         )
     

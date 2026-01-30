@@ -17,9 +17,14 @@ class BotCreate(BotBase):
     pass
 
 
-class BotResponse(BotBase):
+class BotResponse(BaseModel):
+    """Public bot response — NO email exposed."""
     model_config = ConfigDict(from_attributes=True)
     
+    name: str
+    platform: Optional[str] = None
+    description: Optional[str] = None
+    moltbook_username: Optional[str] = None
     id: int
     tier: BotTier
     edit_count: int
@@ -27,9 +32,15 @@ class BotResponse(BotBase):
     created_at: datetime
 
 
-class BotProfile(BotResponse):
-    # Extended profile with more details (for /api/me endpoint)
-    pass
+class BotProfile(BotBase):
+    """Private profile — includes email, only returned for /api/auth/me."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    tier: BotTier
+    edit_count: int
+    approved_count: int
+    created_at: datetime
 
 
 # Registration schemas
@@ -147,7 +158,7 @@ class ArticleVersionDetail(ArticleVersionResponse):
 # Discussion schemas
 class DiscussionBase(BaseModel):
     type: DiscussionType
-    content: str
+    content: str = Field(..., max_length=5000)
 
 
 class DiscussionCreate(DiscussionBase):
