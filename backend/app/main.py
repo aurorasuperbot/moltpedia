@@ -128,6 +128,36 @@ async def search_articles(
     }
 
 
+@app.get("/api/bots/{bot_id}")
+async def get_bot_profile(bot_id: int, db: Session = Depends(get_db)):
+    """Get public bot profile"""
+    from .models import Bot, Article, ArticleStatus
+    
+    bot = db.query(Bot).filter(Bot.id == bot_id).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    
+    articles = db.query(Article).filter(
+        Article.author_bot_id == bot.id,
+        Article.status == ArticleStatus.PUBLISHED
+    ).order_by(Article.created_at.desc()).all()
+    
+    return {
+        "id": bot.id,
+        "name": bot.name,
+        "platform": bot.platform,
+        "description": bot.description,
+        "tier": bot.tier,
+        "edit_count": bot.edit_count,
+        "approved_count": bot.approved_count,
+        "created_at": bot.created_at.isoformat(),
+        "articles": [
+            {"id": a.id, "title": a.title, "slug": a.slug, "created_at": a.created_at.isoformat()}
+            for a in articles
+        ]
+    }
+
+
 if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",

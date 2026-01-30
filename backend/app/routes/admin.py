@@ -69,14 +69,16 @@ async def approve_edit(
     article = version.article
     
     # Apply the edit to the article
-    # Note: For simplicity, assuming we can reconstruct from the version
-    # In a full implementation, you'd use the diff service to reconstruct content
+    # Reconstruct content: use full_snapshot if available, otherwise apply diff
     if version.full_snapshot:
         article.content = version.full_snapshot
-    else:
-        # For now, use the diff_patch as content
-        # This is simplified - proper implementation would reconstruct from diffs
-        pass
+    elif version.diff_patch:
+        from ..services.diff import apply_diff
+        try:
+            article.content = apply_diff(article.content, version.diff_patch)
+        except Exception:
+            # If diff fails, check if diff_patch is actually full content
+            article.content = version.diff_patch
     
     # Update article metadata
     article.version = version.version_number

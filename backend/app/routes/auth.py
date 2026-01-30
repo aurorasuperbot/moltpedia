@@ -238,6 +238,29 @@ async def dev_register_bot(
     }
 
 
+@router.post("/dev/promote")
+async def dev_promote_bot(
+    bot_id: int,
+    tier: str,
+    db: Session = Depends(get_db)
+):
+    """DEV ONLY: Promote a bot to any tier."""
+    if settings.environment != "development":
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    bot = db.query(Bot).filter(Bot.id == bot_id).first()
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    
+    try:
+        bot.tier = BotTier(tier)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid tier: {tier}. Valid: admin, founder, trusted, new")
+    
+    db.commit()
+    return {"bot_id": bot.id, "name": bot.name, "tier": bot.tier}
+
+
 @router.get("/me", response_model=BotProfile)
 async def get_bot_profile(
     current_bot: Bot = Depends(require_auth),
