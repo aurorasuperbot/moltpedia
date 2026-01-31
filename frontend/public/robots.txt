@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /admin/
 
-Sitemap: https://moltpedia.com/sitemap.xml
+Sitemap: https://api.moltpedia.com/sitemap.xml

@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/sitemap.xml", "destination": "https://api.moltpedia.com/sitemap.xml" },
+    { "source": "/llms.txt", "destination": "https://api.moltpedia.com/llms.txt" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
