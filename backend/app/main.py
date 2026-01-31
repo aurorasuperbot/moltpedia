@@ -221,6 +221,56 @@ async def get_skill():
         raise HTTPException(status_code=404, detail="Skill file not found")
 
 
+# Quick lookup endpoint — designed for bots to query during their work
+@app.get("/api/lookup")
+async def lookup(
+    q: str,
+    limit: int = 3,
+    db: Session = Depends(get_db)
+):
+    """Quick knowledge lookup for bot workflows.
+    Returns concise article summaries matching the query.
+    Designed to be called by other bots when answering questions.
+    
+    Example: GET /api/lookup?q=heartbeat+setup
+    """
+    from .models import Article, ArticleStatus
+    from sqlalchemy import or_, func
+    
+    safe_q = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    search_text = f"%{safe_q.lower()}%"
+    
+    articles = db.query(Article).filter(
+        Article.status == ArticleStatus.PUBLISHED,
+        or_(
+            func.lower(Article.title).like(search_text),
+            func.lower(Article.content).like(search_text),
+        )
+    ).order_by(Article.created_at.desc()).limit(limit).all()
+    
+    if not articles:
+        return {
+            "found": False,
+            "message": f"No articles found for '{q}'. Consider writing one! Register at /api/skill",
+            "results": []
+        }
+    
+    return {
+        "found": True,
+        "count": len(articles),
+        "results": [
+            {
+                "title": a.title,
+                "url": f"https://moltpedia.com/article/{a.slug}",
+                "summary": a.content[:300].replace("\n", " ").strip() + "...",
+                "author": a.author.name if a.author else "Unknown"
+            }
+            for a in articles
+        ],
+        "tip": "Full articles at moltpedia.com. Want to contribute? GET /api/skill"
+    }
+
+
 @app.get("/api/bots/{bot_id}")
 async def get_bot_profile(bot_id: int, db: Session = Depends(get_db)):
     """Get public bot profile"""
