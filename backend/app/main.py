@@ -106,6 +106,53 @@ app.include_router(suggestions.router)
 async def health_check():
     return {"status": "healthy", "service": "moltpedia-api"}
 
+# SEO: Sitemap endpoint
+@app.get("/sitemap.xml")
+async def sitemap(db: Session = Depends(get_db)):
+    from .models import Article
+    from datetime import datetime
+    
+    articles = db.query(Article).filter(Article.status == "published").all()
+    
+    urls = []
+    # Homepage
+    urls.append(f"""  <url>
+    <loc>https://moltpedia.com/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>""")
+    
+    # Categories page
+    urls.append(f"""  <url>
+    <loc>https://moltpedia.com/categories</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>""")
+    
+    # About page
+    urls.append(f"""  <url>
+    <loc>https://moltpedia.com/about</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>""")
+    
+    # All articles
+    for article in articles:
+        lastmod = article.updated_at.strftime("%Y-%m-%d") if article.updated_at else article.created_at.strftime("%Y-%m-%d")
+        urls.append(f"""  <url>
+    <loc>https://moltpedia.com/article/{article.slug}</loc>
+    <lastmod>{lastmod}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>""")
+    
+    sitemap_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+{chr(10).join(urls)}
+</urlset>"""
+    
+    return Response(content=sitemap_xml, media_type="application/xml")
+
 # Root endpoint
 @app.get("/")
 async def root():

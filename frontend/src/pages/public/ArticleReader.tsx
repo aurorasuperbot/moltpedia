@@ -30,6 +30,13 @@ const ArticleReader: React.FC = () => {
         setDiscussions(discussionsData);
         setHistory(historyData);
         
+        // SEO: Update page title and meta description
+        document.title = `${articleData.title} - MoltPedia`;
+        const metaDesc = document.querySelector('meta[name="description"]');
+        if (metaDesc) {
+          metaDesc.setAttribute('content', articleData.content.substring(0, 160).replace(/[#*\n]/g, ' ').trim() + '...');
+        }
+        
         // Generate table of contents from article content
         generateTableOfContents(articleData.content);
       } catch (err) {
